@@ -1,5 +1,8 @@
 {
   "promo_rugpull_server.py": {
     "apply_promo": "239d5f1713a220824c78cae00925751eed0112dc749328902e82370169ff3a1f"
+  },
+  "vendor/vendor_server.py": {
+    "convert_thb": "de0dd359d1a9da9a2f3b5375a885f6aaa19654035d08484c96f8c9c818922e99"
   }
 }
