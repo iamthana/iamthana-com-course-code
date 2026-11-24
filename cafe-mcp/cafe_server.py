@@ -1,7 +1,9 @@
+import json
+from datetime import date
 from typing import Annotated, TypedDict
 
 from mcp.server.mcpserver import AcceptedElicitation, Elicit, ElicitationResult, MCPServer, Resolve
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ResourceNotFoundError, ToolError
 from pydantic import BaseModel
 
 from database import connect
@@ -96,6 +98,46 @@ def cancel_order(
     with connect() as db:
         db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
     return f"Order {order_id} cancelled."
+
+
+@mcp.resource("cafe://menu", mime_type="application/json")
+def menu_resource() -> list[MenuItem]:
+    """The full menu as JSON."""
+    return list_menu()
+
+
+@mcp.resource("cafe://orders/{order_id}", mime_type="application/json")
+def order_resource(order_id: str) -> str:
+    """One order with its items."""
+    try:
+        order = load_order(int(order_id))
+    except (ValueError, OverflowError):
+        raise ResourceNotFoundError(f"'{order_id}' is not an order number") from None
+    if order is None:
+        raise ResourceNotFoundError(f"Order {order_id} not found")
+    return json.dumps(order, default=lambda item: item.model_dump(), ensure_ascii=False)
+
+
+@mcp.resource("cafe://sales/{day}", mime_type="application/json")
+def sales_resource(day: str) -> list[dict]:
+    """Orders placed on a day (YYYY-MM-DD), without customer names."""
+    try:
+        date.fromisoformat(day)
+    except ValueError:
+        raise ResourceNotFoundError(f"'{day}' is not a date, use YYYY-MM-DD") from None
+    with connect() as db:
+        rows = db.execute("SELECT id, status, total_thb FROM orders WHERE order_date = ?", (day,))
+        return [dict(row) for row in rows]
+
+
+@mcp.resource("cafe://recipes/{menu}/{size}", mime_type="text/plain")
+def recipe_resource(menu: str, size: str) -> str:
+    """How to make a drink in a given size."""
+    with connect() as db:
+        row = db.execute("SELECT instructions FROM recipes WHERE menu = ? AND size = ?", (menu, size)).fetchone()
+    if row is None:
+        raise ResourceNotFoundError(f"No recipe for {menu} size {size}")
+    return row["instructions"]
 
 
 if __name__ == "__main__":
