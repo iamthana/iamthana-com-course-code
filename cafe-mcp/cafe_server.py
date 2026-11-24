@@ -6,7 +6,16 @@ from mcp.server.mcpserver import AcceptedElicitation, Elicit, ElicitationResult,
 from mcp.server.mcpserver.exceptions import ResourceNotFoundError, ToolError
 from mcp.server.mcpserver.prompts.base import UserMessage
 from mcp.shared.exceptions import MCPError
-from mcp_types import INVALID_PARAMS, EmbeddedResource, TextResourceContents
+from mcp_types import (
+    INVALID_PARAMS,
+    Completion,
+    CompletionArgument,
+    CompletionContext,
+    EmbeddedResource,
+    PromptReference,
+    ResourceTemplateReference,
+    TextResourceContents,
+)
 from pydantic import BaseModel
 
 from database import connect
@@ -164,6 +173,31 @@ def daily_summary(day: str, focus: str = "") -> list[UserMessage]:
             )
         ),
     ]
+
+
+MAX_SUGGESTIONS = 10
+
+
+@mcp.completion()
+async def complete_arguments(
+    ref: PromptReference | ResourceTemplateReference,
+    argument: CompletionArgument,
+    context: CompletionContext | None,
+) -> Completion | None:
+    chosen = context.arguments if context and context.arguments else {}
+    if argument.name == "menu":
+        query, parameters = "SELECT name FROM menu WHERE instr(lower(name), lower(?)) = 1 ORDER BY name", [argument.value]
+    elif argument.name == "size":
+        query = "SELECT size FROM recipes WHERE menu = ? AND instr(lower(size), lower(?)) = 1 ORDER BY size"
+        parameters = [chosen.get("menu", ""), argument.value]
+    elif argument.name == "day":
+        query = "SELECT DISTINCT order_date FROM orders WHERE instr(order_date, ?) = 1 ORDER BY order_date DESC"
+        parameters = [argument.value]
+    else:
+        return None
+    with connect() as db:
+        rows = db.execute(f"{query} LIMIT ?", [*parameters, MAX_SUGGESTIONS + 1]).fetchall()
+    return Completion(values=[row[0] for row in rows[:MAX_SUGGESTIONS]], has_more=len(rows) > MAX_SUGGESTIONS)
 
 
 if __name__ == "__main__":
