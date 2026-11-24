@@ -4,6 +4,9 @@ from typing import Annotated, TypedDict
 
 from mcp.server.mcpserver import AcceptedElicitation, Elicit, ElicitationResult, MCPServer, Resolve
 from mcp.server.mcpserver.exceptions import ResourceNotFoundError, ToolError
+from mcp.server.mcpserver.prompts.base import UserMessage
+from mcp.shared.exceptions import MCPError
+from mcp_types import INVALID_PARAMS, EmbeddedResource, TextResourceContents
 from pydantic import BaseModel
 
 from database import connect
@@ -138,6 +141,29 @@ def recipe_resource(menu: str, size: str) -> str:
     if row is None:
         raise ResourceNotFoundError(f"No recipe for {menu} size {size}")
     return row["instructions"]
+
+
+@mcp.prompt()
+def daily_summary(day: str, focus: str = "") -> list[UserMessage]:
+    """Summarise the cafe's sales for a day (YYYY-MM-DD). Optional focus narrows the summary."""
+    try:
+        sales = sales_resource(day)
+    except ResourceNotFoundError as error:
+        raise MCPError(INVALID_PARAMS, str(error)) from None
+    instruction = f"Summarise the cafe's sales for {day}: total in baht, number of orders, and how many are not completed."
+    if focus:
+        instruction += f" Focus on: {focus}"
+    return [
+        UserMessage(instruction),
+        UserMessage(
+            EmbeddedResource(
+                type="resource",
+                resource=TextResourceContents(
+                    uri=f"cafe://sales/{day}", mime_type="application/json", text=json.dumps(sales, indent=2)
+                ),
+            )
+        ),
+    ]
 
 
 if __name__ == "__main__":
