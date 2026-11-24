@@ -5,6 +5,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 
 RESOURCE_URL = "http://127.0.0.1:8765/mcp"
 
@@ -21,6 +22,14 @@ AUTH_SETTINGS = AuthSettings(
     resource_server_url=RESOURCE_URL,
     required_scopes=["orders:read"],
     validate_token_resource=True,
+)
+
+
+# Only Host 127.0.0.1:8765 passes, and a request that carries any Origin header is refused.
+TRANSPORT_SECURITY = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["127.0.0.1:8765"],
+    allowed_origins=[],
 )
 
 
