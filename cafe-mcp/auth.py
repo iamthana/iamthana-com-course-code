@@ -7,6 +7,8 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 
+from audit import scope_refusals
+
 RESOURCE_URL = "http://127.0.0.1:8765/mcp"
 
 # environment variable -> (client id, scopes, resource the token was issued for)
@@ -48,4 +50,5 @@ def require_scope(scope: str) -> None:
     # No access token means stdio or an in-process client; over HTTP the endpoint rejects requests without one.
     access_token = get_access_token()
     if access_token is not None and scope not in access_token.scopes:
+        scope_refusals.get([]).append(scope)
         raise ToolError(f"This token cannot change orders: missing scope {scope}.")
