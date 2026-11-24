@@ -18,9 +18,10 @@ from mcp_types import (
 )
 from pydantic import BaseModel
 
+from auth import AUTH_SETTINGS, DemoTokenVerifier, require_scope
 from database import connect
 
-mcp = MCPServer("cafe")
+mcp = MCPServer("cafe", auth=AUTH_SETTINGS, token_verifier=DemoTokenVerifier())
 
 
 class MenuItem(TypedDict):
