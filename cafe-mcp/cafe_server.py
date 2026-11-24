@@ -72,6 +72,7 @@ def load_order(order_id: int) -> Order | None:
 @mcp.tool()
 def create_order(items: list[OrderItem], customer_name: str) -> Order:
     """Create an order for a customer. Each item needs a menu name, a size (S, M or L) and a quantity."""
+    require_scope("orders:write")
     if not items or not customer_name.strip():
         raise ToolError("An order needs a customer name and at least one item.")
     total = 0
@@ -94,6 +95,7 @@ def create_order(items: list[OrderItem], customer_name: str) -> Order:
 
 
 def ask_cancel_confirmation(order_id: int) -> Elicit[Confirmation]:
+    require_scope("orders:write")  # resolvers run before the tool body, so this refuses before any question
     order = load_order(order_id)
     if order is None:
         raise ToolError(f"Order {order_id} not found.")
